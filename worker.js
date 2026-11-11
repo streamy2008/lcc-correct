@@ -170,7 +170,7 @@ function applyProfile(msg) {
   const scale = Math.min(1, gainRes / Math.max(W, H));
   const gw = Math.max(8, Math.round(W * scale)), gh = Math.max(8, Math.round(H * scale));
 
-  let gm = M.gainMap(profile, gw, gh);
+  let gm = M.gainMap(profile, gw, gh, { norm: opt.norm || 'channel', strength: opt.strength === undefined ? 1 : opt.strength });
 
   if (opt.chromaOnly) {
     // 只校色度：把三通道增益归一化到亮度增益，亮度保持 1
@@ -234,7 +234,7 @@ function applyProfile(msg) {
         // 变化量：每 3 个像素采一次，够代表整幅
         if (((y * W + x) % 3) === 0) {
           let br, bg, bb;
-          if (bits === 8) { br = data[p] / 255; bg = data[p + 1] / 255; bb = data[p + 2] / 255; }
+          if (bits === 8) { br = M.LIN[data[p]]; bg = M.LIN[data[p + 1]]; bb = M.LIN[data[p + 2]]; }
           else { br = data[p] / 65535; bg = data[p + 1] / 65535; bb = data[p + 2] / 65535; }
           const or_ = M.srgb8(r), og = M.srgb8(g), ob = M.srgb8(b);
           const od = Math.abs(or_ - M.srgb8(br)) + Math.abs(og - M.srgb8(bg)) + Math.abs(ob - M.srgb8(bb));
@@ -268,6 +268,7 @@ function autoProfile(msg) {
   const block = 64;
   const nx = Math.ceil(W / block), ny = Math.ceil(H / block);
   const pts = [];
+  const lumaPts = [];                 // 暗角（亮度）用：块中心的 r² 与对数亮度
   const tmp = new Float64Array(block * block);
 
   for (let by = 0; by < ny; by++) {
@@ -298,31 +299,81 @@ function autoProfile(msg) {
       pts.push({ u, v, y: [Math.log(Math.max(med[0], 1e-4) / Math.max(med[1], 1e-4)),
                             0,
                             Math.log(Math.max(med[2], 1e-4) / Math.max(med[1], 1e-4))] });
+      const lum = 0.2126 * med[0] + 0.7152 * med[1] + 0.0722 * med[2];
+      lumaPts.push({ u, v, r2: u * u + v * v, y: Math.log(Math.max(lum, 1e-4)) });
     }
   }
   if (pts.length < 40) throw new Error('可用于自校准的平坦块太少：换一张更均匀的照片（天空/墙面）');
 
-  const terms = M.polyTerms(deg);
-  const coef = M.fitPoly(pts, terms, 3);
-  // 只取 R/B 的色度场，且限幅
-  for (let k = 0; k < terms.length; k++) {
-    for (let c = 0; c < 3; c++) {
-      const idx = k * 3 + c;
-      let val = c === 1 ? 0 : -coef[idx];
-      if (c !== 1) val = Math.max(-maxCorr, Math.min(maxCorr, val));
-      coef[idx] = val;
+  // 统一用 4 阶基：色度场 + 亮度暗角都要能落进去
+  const deg4 = 4;
+  const terms = M.polyTerms(deg4);
+  const idxOf = (i, j) => terms.findIndex((t) => t[0] === i && t[1] === j);
+
+  // 色度：log(R/G)、log(B/G)
+  const chroma = M.fitPoly(pts.map((p) => ({ u: p.u, v: p.v, y: [p.y[0], 0, p.y[2]] })), terms, 3);
+
+  // 亮度暗角：对 log(亮度) 拟合 a0 + a1·r² + a2·r⁴（只用平坦块，避免被画面内容带偏）
+  const doVig = opt.doVignette !== false;
+  let a = [0, 0, 0];
+  if (doVig && lumaPts.length > 30) {
+    // 基函数：[1, u, v, r², r⁴]——u、v 两项用来吸收「天空亮、地面暗」这类场景自身的明暗梯度，
+    // 否则它会被误当成暗角（这是无平场估暗角最容易翻车的地方）
+    const N = 5;
+    const A = new Float64Array(N * N), bvec = new Float64Array(N);
+    for (const p of lumaPts) {
+      const basis = [1, p.u, p.v, p.r2, p.r2 * p.r2];
+      for (let i = 0; i < N; i++) {
+        for (let j = 0; j < N; j++) A[i * N + j] += basis[i] * basis[j];
+        bvec[i] += basis[i] * p.y;
+      }
+    }
+    const sol = M.solve(A, bvec, N);
+    if (sol && isFinite(sol[0])) {
+      // sol[3]、sol[4] 是 log 亮度在 r²、r⁴ 上的系数：暗角使其为负值，深度 d = -系数
+      a = [0, Math.max(0, -sol[3]), Math.max(0, -sol[4])];
+      // 阻尼 0.85：无平场时靠画面估暗角必然偏乐观（像素统计里混着场景自身的明暗），
+      // 宁可少补一点也不要把角落补到比中心还亮。
+      const damp = 0.85;
+      a = [0, a[1] * damp, a[2] * damp];
+      let vmax = a[1] * 2 + a[2] * 4;
+      const vcap = 0.95;
+      if (vmax > vcap) { const k = vcap / vmax; a = [0, a[1] * k, a[2] * k]; vmax = vcap; }
+      a.vmax = vmax;
     }
   }
+
+  // 合成：增益对数 = 亮度场 + 色度场（色度只改 R/B，G 不动）
+  const coef = new Float64Array(terms.length * 3);
+  // 增益对数 = +d1·r² + d2·r⁴，展开到多项式基：(2,0),(0,2) 取 d1；(4,0),(0,4) 取 d2；(2,2) 取 2·d2
+  const vig = [[0, 0], [2, 0], [0, 2], [4, 0], [2, 2], [0, 4]];
+  // 注意：profile 存的是 log 增益，gain = exp(-log)；暗角要「提亮」，所以这里是负号
+  const vigW = [0, -a[1], -a[1], -a[2], -2 * a[2], -a[2]];
+  for (let k = 0; k < vig.length; k++) {
+    const t = vig[k];
+    const idx = idxOf(t[0], t[1]);
+    if (idx < 0) continue;
+    for (let c = 0; c < 3; c++) coef[idx * 3 + c] += vigW[k];
+  }
+  for (let k = 0; k < terms.length; k++) {
+    const cR = Math.max(-maxCorr, Math.min(maxCorr, -chroma[k * 3]));
+    const cB = Math.max(-maxCorr, Math.min(maxCorr, -chroma[k * 3 + 2]));
+    coef[k * 3] += cR;
+    coef[k * 3 + 2] += cB;
+  }
+  // 中心归 1（只平移常数项）
   const e0 = M.evalPoly(coef, terms, 0, 0);
   for (let c = 0; c < 3; c++) coef[c] -= e0[c];
 
   const profile = {
     schema: 'lenscast-profile/1', created: new Date().toISOString(),
     label: opt.label || 'scene-auto', image_size: [W, H], black: [0, 0, 0],
-    gain_max: Math.exp(maxCorr), model: 'poly', deg, terms, coeffs: Array.from(coef),
+    gain_max: doVig ? 4 : Math.exp(maxCorr), model: 'poly', deg: deg4, terms, coeffs: Array.from(coef),
     center: [W / 2, H / 2], scale: [W / 2, H / 2],
   };
-  return { ok: true, profile, report: { validBlocks: pts.length, deg, maxCorr } };
+  return { ok: true, profile,
+           report: { validBlocks: pts.length, deg: deg4, maxCorr, vignette: doVig,
+                     vignetteLog: (a[1] * 2 + a[2] * 4) || 0 } };
 }
 
 /* ---------------- 增益预览图 ---------------- */

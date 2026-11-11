@@ -398,13 +398,20 @@
       const res = await callWorker('apply', {
         image: { w: img.w, h: img.h, bits: img.bits, data: copy },
         profile: state.profile,
-        opts: { chromaOnly: $('#chromaOnly').checked, exposure: $('#keepExposure').checked ? 'preserve' : 'none', gainRes: 1200, outBits: 16 },
+        opts: {
+          chromaOnly: $('#chromaOnly').checked,
+          exposure: $('#keepExposure').checked ? 'preserve' : 'none',
+          gainRes: 1200, outBits: 16,
+          strength: (parseFloat($('#strength').value) || 100) / 100,
+          norm: $('#keepWB').checked ? 'channel' : 'global',
+        },
       }, [copy.buffer]);
       state.result = res.image;
       paintCanvas($('#cvAfter'), res.image, 1600);
       $('#exportBtn').disabled = false;
       $('#resultMeta').textContent = `曝光系数 ${res.report.exposure.toFixed(3)} · 削顶 ${(res.report.clipped / (img.w * img.h) * 100).toFixed(2)}%`;
       state.lastChange = res.report.change || null;
+      state.applySeq = (state.applySeq || 0) + 1;   // 供自动化测试判定「这次校正真的落地了」
       $('#noResult').hidden = true;
       explainChange(res.report);
       syncButtons();
@@ -422,7 +429,8 @@
       const copy = img.bits === 8 ? Uint8Array.from(img.data) : Uint16Array.from(img.data);
       const res = await callWorker('auto', {
         image: { w: img.w, h: img.h, bits: img.bits, data: copy },
-        opts: { deg: 3, maxCorr: 0.7, label: 'scene-auto' },
+        opts: { deg: 3, maxCorr: 0.7, label: 'scene-auto' + ($('#fixVignette').checked ? '+vig' : ''),
+                doVignette: $('#fixVignette').checked },
       });
       state.profile = res.profile;
       state.lastReport = { ...res.report, corners: null };
@@ -565,6 +573,7 @@
     };
 
     $('#split').oninput = (e) => setSplit(e.target.value);
+    $('#strength').oninput = (e) => { $('#strengthVal').textContent = e.target.value + '%'; };
     $('#mobileFlat').onclick = () => {
       $$('.tab').forEach((t) => t.classList.toggle('is-active', t.dataset.tab === 'flat'));
       $$('.tab-panel').forEach((p) => p.classList.toggle('is-active', p.dataset.panel === 'flat'));

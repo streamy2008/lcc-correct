@@ -94,6 +94,18 @@
           <input type="checkbox" id="keepExposure" checked>
           <span>保持整体曝光</span>
         </label>
+        <label class="switch">
+          <input type="checkbox" id="keepWB" checked>
+          <span>保持原始白平衡（整幅不偏色）</span>
+        </label>
+        <label class="switch">
+          <input type="checkbox" id="fixVignette" checked>
+          <span>同时去暗角（无平场时用亮度拟合）</span>
+        </label>
+        <label class="field">
+          <span class="label">校正强度 <span id="strengthVal" class="mono">100%</span></span>
+          <input id="strength" class="range" type="range" min="0" max="150" step="5" value="100">
+        </label>
       </div>
 
       <div class="row gap">
