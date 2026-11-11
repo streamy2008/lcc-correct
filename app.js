@@ -288,7 +288,7 @@
       state.profile = res.profile;
       state.lastReport = res.report;
       updateProfileMeta();
-      await drawGainPreview(res.profile);
+      try { await drawGainPreview(res.profile); } catch (e) { console.warn('增益预览失败（不影响校正）', e); }
       $('#saveBtn').disabled = false;
       syncButtons();
       toast(`轮廓就绪：${cornerText(res.report)}`);
@@ -314,8 +314,13 @@
     }
     explainProfile();
     $('#gainBox').hidden = false;
-    const rep = state.lastReport;
-    $('#gainMeta').textContent = rep ? `网格 ${rep.grid[0]}×${rep.grid[1]} · 最大增益 ${rep.gain_max.toFixed(2)}` : '';
+    const rep = state.lastReport || {};
+    const bits = [];
+    if (rep.grid) bits.push(`网格 ${rep.grid[0]}×${rep.grid[1]}`);
+    if (typeof rep.gain_max === 'number' && isFinite(rep.gain_max)) bits.push(`最大增益 ${rep.gain_max.toFixed(2)}`);
+    if (rep.validBlocks) bits.push(`平坦块 ${rep.validBlocks}`);
+    if (rep.maxCorr) bits.push(`限幅 ±${rep.maxCorr}`);
+    $('#gainMeta').textContent = bits.join(' · ');
   }
 
   /* ---------------- 诊断：说清楚「到底改了多少」 ---------------- */
@@ -422,8 +427,8 @@
       state.profile = res.profile;
       state.lastReport = { ...res.report, corners: null };
       updateProfileMeta();
-      await drawGainPreview(res.profile);
-      await applyProfile();
+      await applyProfile();                     // 先出结果：校正才是这条路径的目的
+      try { await drawGainPreview(res.profile); } catch (e) { console.warn('增益预览失败（不影响校正）', e); }
       toast(`应急轮廓：用到 ${res.report.validBlocks} 个平坦块`);
     } catch (err) {
       toast(err.message, 'err');
