@@ -45,6 +45,7 @@
         <div id="splitHandle" class="split-handle" title="拖动对比"></div>
         <span class="tag tag-before">校正前</span>
         <span class="tag tag-after">校正后</span>
+        <span id="noResult" class="tag nores">未校正 · 左右是同一张</span>
       </div>
       <input id="split" class="split" type="range" min="0" max="100" value="50" aria-label="前后对比">
       <div class="viewer-meta">
@@ -79,6 +80,9 @@
           <button id="deleteProfile" class="btn ghost danger" title="删除当前轮廓">删除</button>
         </div>
         <p id="profileMeta" class="hint mono"></p>
+        <div class="gain-mini"><canvas id="cvGain2" width="360" height="240" aria-label="增益图（越亮表示增益越大）"></canvas>
+          <span class="gain-cap">增益图：亮 = 该处要提亮得多</span></div>
+        <div id="diag" class="diag" hidden></div>
       </div>
 
       <div class="field">
@@ -96,6 +100,8 @@
         <button id="applyBtn" class="btn primary grow" disabled>校正</button>
         <button id="autoBtn" class="btn grow-0" title="没有平场时，用画面自身估色度渐变">无平场应急</button>
       </div>
+
+      <p id="changeMeta" class="hint mono"></p>
 
       <div class="field">
         <label class="label">导出</label>

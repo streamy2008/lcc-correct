@@ -305,12 +305,55 @@
 
   async function drawGainPreview(profile) {
     const res = await callWorker('gainpreview', { profile, w: 480, h: 320 });
-    const cv = $('#cvGain');
-    cv.width = res.image.w; cv.height = res.image.h;
-    cv.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(res.image.rgba), res.image.w, res.image.h), 0, 0);
+    const img = new ImageData(new Uint8ClampedArray(res.image.rgba), res.image.w, res.image.h);
+    for (const id of ['#cvGain', '#cvGain2']) {
+      const cv = $(id);
+      if (!cv) continue;
+      cv.width = img.width; cv.height = img.height;
+      cv.getContext('2d').putImageData(img, 0, 0);
+    }
+    explainProfile();
     $('#gainBox').hidden = false;
     const rep = state.lastReport;
     $('#gainMeta').textContent = rep ? `网格 ${rep.grid[0]}×${rep.grid[1]} · 最大增益 ${rep.gain_max.toFixed(2)}` : '';
+  }
+
+  /* ---------------- 诊断：说清楚「到底改了多少」 ---------------- */
+  function diag(kind, text) {
+    const el = $('#diag');
+    if (!text) { el.hidden = true; el.textContent = ''; return; }
+    el.hidden = false;
+    el.dataset.kind = kind || 'warn';
+    el.textContent = text;
+  }
+
+  function profileCornerGain(rep) {
+    if (!rep || !rep.corners) return null;
+    const c = rep.corners;
+    const vals = ['tl', 'tr', 'bl', 'br'].map((k) => Math.max(c[k][0], c[k][1], c[k][2]));
+    return Math.max.apply(null, vals);
+  }
+
+  function explainProfile() {
+    const g = profileCornerGain(state.lastReport);
+    if (g == null) { diag('', ''); return; }
+    if (g < 1.12) {
+      diag('warn', `轮廓几乎没测到暗角：四角最大增益只有 ${g.toFixed(2)}（正常短后焦广角应到 1.3–2.0）。`
+        + '检查平场是否与照片同光圈/同移轴位、是否过曝，或干脆重拍平场。');
+    } else {
+      diag('ok', `轮廓正常：四角最大增益 ${g.toFixed(2)}，校正在角落会有明显提亮。`);
+    }
+  }
+
+  function explainChange(rep) {
+    const ch = rep && rep.change;
+    if (!ch) return;
+    const pct = (v) => (v / 255 * 100).toFixed(1) + '%';
+    $('#changeMeta').textContent = `实际改动：整幅平均 ${pct(ch.mean)}｜最大 ${pct(ch.max)}｜四角 ${pct(ch.corner)}`;
+    if (ch.mean / 255 < 0.015) {
+      diag('err', `这次校正几乎没改动画面（平均 ${pct(ch.mean)}）。常见原因：① 轮廓与照片不是同一条件（光圈/移轴变了）；`
+        + '② 用了「只校色度」，亮度不动；③ 平场拍摄时已过曝或白板不均。');
+    }
   }
 
   /* ---------------- 选照片 ---------------- */
@@ -332,6 +375,8 @@
       $('#photoName').textContent = file.name;
       $('#resultMeta').textContent = '';
       $('#exportBtn').disabled = true;
+      $('#noResult').hidden = false;
+      $('#changeMeta').textContent = '';
       syncButtons();
     } catch (err) {
       toast(err.message, 'err');
@@ -354,6 +399,9 @@
       paintCanvas($('#cvAfter'), res.image, 1600);
       $('#exportBtn').disabled = false;
       $('#resultMeta').textContent = `曝光系数 ${res.report.exposure.toFixed(3)} · 削顶 ${(res.report.clipped / (img.w * img.h) * 100).toFixed(2)}%`;
+      state.lastChange = res.report.change || null;
+      $('#noResult').hidden = true;
+      explainChange(res.report);
       syncButtons();
       toast('校正完成');
     } catch (err) {

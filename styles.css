@@ -175,3 +175,17 @@ button,input,select{font:inherit;color:inherit}
   border-top-color:#fff; animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){ .spinner{animation-duration:2s} .btn,.split-handle{transition:none} }
+
+/* 诊断：增益图缩略 + 变化量提示 */
+.gain-mini{margin-top:var(--s-2); display:flex; flex-direction:column; gap:4px}
+.gain-mini canvas{width:100%; max-width:360px; height:auto; border-radius:var(--r-1);
+  border:1px solid var(--c-line); background:#111; display:block}
+.gain-cap{font-size:var(--f-label); color:var(--c-muted)}
+.diag{margin-top:var(--s-2); padding:10px 12px; border-radius:var(--r-2); font-size:var(--f-small);
+  border:1px solid var(--c-line-2); background:var(--c-warn-soft, #fdf1dc); color:var(--c-warn-ink, #8a5300)}
+.diag[data-kind="err"]{background:var(--c-err-soft,#fdecea); color:var(--c-err-ink,#b3261e)}
+.diag[data-kind="ok"]{background:var(--c-ok-soft,#e6f4ea); color:var(--c-ok-ink,#14722f)}
+
+/* 未校正提示：避免「拖中缝看不出差别」被误解为校正无效 */
+.tag.nores{left:50%; transform:translateX(-50%); background:rgba(180,60,40,.86); letter-spacing:.01em}
+.tag.nores[hidden]{display:none !important}

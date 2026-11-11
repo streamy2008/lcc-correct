@@ -1,5 +1,5 @@
 /* LCC 校正 PWA Service Worker —— 预缓存 app shell，离线可用 */
-const VERSION = 'lcc-v2';
+const VERSION = 'lcc-v3';
 const SHELL = [
   './', './index.html', './styles.css', './tokens.css', './app.js', './worker.js',
   './lib/math.js', './lib/codec.js', './manifest.webmanifest',

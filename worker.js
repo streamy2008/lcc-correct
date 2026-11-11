@@ -213,6 +213,10 @@ function applyProfile(msg) {
   const out = outBits === 8 ? new Uint8Array(W * H * 3) : new Uint16Array(W * H * 3);
   const strip = 256;
   let clipped = 0;
+  // 变化量统计（用 8bit sRGB 域，和肉眼看的一致）
+  let dSum = 0, dMax = 0, dN = 0;
+  const cw = Math.max(4, Math.round(W * 0.1)), chh = Math.max(4, Math.round(H * 0.1));
+  let cSum = 0, cN = 0;
   for (let y0 = 0; y0 < H; y0 += strip) {
     const y1 = Math.min(H, y0 + strip);
     const gains = M.stripGains(gm, gw, gh, W, H, y0, y1);
@@ -227,6 +231,19 @@ function applyProfile(msg) {
           r = (data[p] / 65535) * gr; g = (data[p + 1] / 65535) * gg; b = (data[p + 2] / 65535) * gb;
         }
         if (r >= 1 || g >= 1 || b >= 1) clipped++;
+        // 变化量：每 3 个像素采一次，够代表整幅
+        if (((y * W + x) % 3) === 0) {
+          let br, bg, bb;
+          if (bits === 8) { br = data[p] / 255; bg = data[p + 1] / 255; bb = data[p + 2] / 255; }
+          else { br = data[p] / 65535; bg = data[p + 1] / 65535; bb = data[p + 2] / 65535; }
+          const or_ = M.srgb8(r), og = M.srgb8(g), ob = M.srgb8(b);
+          const od = Math.abs(or_ - M.srgb8(br)) + Math.abs(og - M.srgb8(bg)) + Math.abs(ob - M.srgb8(bb));
+          const d = od / 3;
+          dSum += d; dN++;
+          if (d > dMax) dMax = d;
+          const inCorner = (x < cw || x >= W - cw) && (y < chh || y >= H - chh);
+          if (inCorner) { cSum += d; cN++; }
+        }
         if (outBits === 8) {
           out[p] = M.srgb8(r); out[p + 1] = M.srgb8(g); out[p + 2] = M.srgb8(b);
         } else {
@@ -238,7 +255,8 @@ function applyProfile(msg) {
     }
   }
   return { ok: true, image: { w: W, h: H, bits: outBits, data: out },
-           report: { exposure: expo, clipped, gainRes: [gw, gh], outBits } };
+           report: { exposure: expo, clipped, gainRes: [gw, gh], outBits,
+                     change: { mean: dN ? dSum / dN : 0, max: dMax, corner: cN ? cSum / cN : 0 } } };
 }
 
 /* ---------------- 无平场：自估色度渐变 ---------------- */
