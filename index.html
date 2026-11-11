@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>LCC 校正 · 色偏与暗角</title>
+<meta name="description" content="浏览器内完成镜头色偏与暗角校正：平场建轮廓，线性域逐通道相除。Mac 与手机都能用，离线可用。">
+<meta name="theme-color" content="#f7f8f8">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="LCC 校正">
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="tokens.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">
+    <span class="mark" aria-hidden="true"></span>
+    <div>
+      <h1>LCC 校正</h1>
+      <p class="sub">平场建轮廓 · 线性域逐通道相除</p>
+    </div>
+  </div>
+  <div class="top-actions">
+    <span id="netState" class="pill" title="离线也能用">在线</span>
+    <button id="installBtn" class="btn ghost" hidden>安装到本机</button>
+  </div>
+</header>
+
+<main class="layout">
+  <section class="stage" aria-label="图像预览">
+    <div id="emptyState" class="empty">
+      <p class="empty-title">把照片拖进来</p>
+      <p class="empty-hint">或点下面的「选择照片」。支持 JPEG / PNG / 16bit TIFF。</p>
+      <button id="pickPhotoEmpty" class="btn primary">选择照片</button>
+    </div>
+
+    <div id="viewer" class="viewer" hidden>
+      <div class="canvas-wrap">
+        <canvas id="cvBefore" aria-label="校正前"></canvas>
+        <canvas id="cvAfter" aria-label="校正后"></canvas>
+        <div id="splitHandle" class="split-handle" title="拖动对比"></div>
+        <span class="tag tag-before">校正前</span>
+        <span class="tag tag-after">校正后</span>
+      </div>
+      <input id="split" class="split" type="range" min="0" max="100" value="50" aria-label="前后对比">
+      <div class="viewer-meta">
+        <span id="imgMeta" class="mono"></span>
+        <span id="resultMeta" class="mono dim"></span>
+      </div>
+    </div>
+  </section>
+
+  <aside class="panel" aria-label="控制面板">
+    <nav class="tabs" role="tablist">
+      <button class="tab is-active" data-tab="correct" role="tab">校正</button>
+      <button class="tab" data-tab="flat" role="tab">平场</button>
+      <button class="tab" data-tab="settings" role="tab">设置</button>
+    </nav>
+
+    <!-- 校正 -->
+    <section class="tab-panel is-active" data-panel="correct">
+      <div class="field">
+        <label class="label" for="photoInput">照片</label>
+        <div class="row">
+          <input id="photoInput" class="file" type="file" accept="image/*,.tif,.tiff">
+          <button id="pickPhoto" class="btn">选择照片</button>
+        </div>
+        <p id="photoName" class="hint mono"></p>
+      </div>
+
+      <div class="field">
+        <label class="label" for="profileSelect">轮廓</label>
+        <div class="row">
+          <select id="profileSelect" class="select"></select>
+          <button id="deleteProfile" class="btn ghost danger" title="删除当前轮廓">删除</button>
+        </div>
+        <p id="profileMeta" class="hint mono"></p>
+      </div>
+
+      <div class="field">
+        <label class="switch">
+          <input type="checkbox" id="chromaOnly">
+          <span>只校色度（不动亮度）</span>
+        </label>
+        <label class="switch">
+          <input type="checkbox" id="keepExposure" checked>
+          <span>保持整体曝光</span>
+        </label>
+      </div>
+
+      <div class="row gap">
+        <button id="applyBtn" class="btn primary grow" disabled>校正</button>
+        <button id="autoBtn" class="btn grow-0" title="没有平场时，用画面自身估色度渐变">无平场应急</button>
+      </div>
+
+      <div class="field">
+        <label class="label">导出</label>
+        <div class="row">
+          <select id="exportFormat" class="select">
+            <option value="tiff16">16bit TIFF（线性，推荐）</option>
+            <option value="png">PNG（8bit）</option>
+            <option value="jpeg">JPEG（8bit，质量 92）</option>
+          </select>
+          <button id="exportBtn" class="btn" disabled>导出</button>
+        </div>
+        <p class="hint">16bit 导出不带 gamma，适合再进 Lightroom / Phocus 继续处理。</p>
+      </div>
+    </section>
+
+    <!-- 平场 -->
+    <section class="tab-panel" data-panel="flat">
+      <div class="field">
+        <label class="label" for="flatInput">平场（同条件白场，建议 5 到 9 张）</label>
+        <div class="row">
+          <input id="flatInput" class="file" type="file" accept="image/*,.tif,.tiff" multiple>
+          <button id="pickFlat" class="btn">选择平场</button>
+        </div>
+        <ul id="flatList" class="thumbs"></ul>
+        <p id="flatMeta" class="hint mono"></p>
+      </div>
+
+      <details class="adv">
+        <summary>高级参数</summary>
+        <div class="grid2">
+          <label class="field">
+            <span class="label">模型</span>
+            <select id="model" class="select">
+              <option value="poly" selected>多项式（推荐）</option>
+              <option value="grid">网格（更自由）</option>
+            </select>
+          </label>
+          <label class="field">
+            <span class="label">阶数</span>
+            <select id="deg" class="select">
+              <option value="3">3</option>
+              <option value="4" selected>4</option>
+              <option value="5">5</option>
+              <option value="6">6</option>
+            </select>
+          </label>
+          <label class="field">
+            <span class="label">黑电平（三通道，0..1）</span>
+            <input id="black" class="input mono" value="0,0,0" inputmode="decimal">
+          </label>
+          <label class="field">
+            <span class="label">增益上限</span>
+            <input id="gainMax" class="input mono" type="number" value="6" min="1" max="50" step="0.5">
+          </label>
+          <label class="field">
+            <span class="label">平滑 sigma（0 关）</span>
+            <input id="smooth" class="input mono" type="number" value="0" min="0" max="4" step="0.2">
+          </label>
+          <label class="field">
+            <span class="label">轮廓名称</span>
+            <input id="profileLabel" class="input" placeholder="35XL f/11 shift0">
+          </label>
+        </div>
+      </details>
+
+      <div class="row gap">
+        <button id="buildBtn" class="btn primary grow" disabled>生成轮廓</button>
+        <button id="saveBtn" class="btn grow-0" disabled>存入库</button>
+      </div>
+
+      <div id="gainBox" class="gain-box" hidden>
+        <canvas id="cvGain" width="480" height="320"></canvas>
+        <p id="gainMeta" class="mono dim"></p>
+      </div>
+
+      <div class="field">
+        <label class="label">轮廓库</label>
+        <ul id="library" class="library"></ul>
+        <div class="row gap">
+          <button id="importProfile" class="btn ghost">导入 JSON</button>
+          <input id="importInput" class="file" type="file" accept="application/json,.json">
+          <button id="exportProfile" class="btn ghost">导出 JSON</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 设置 -->
+    <section class="tab-panel" data-panel="settings">
+      <div class="field">
+        <label class="label">处理尺寸上限</label>
+        <select id="maxPixels" class="select">
+          <option value="4000000">400 万像素（手机稳妥）</option>
+          <option value="12000000" selected>1200 万像素</option>
+          <option value="24000000">2400 万像素（桌面推荐）</option>
+          <option value="48000000">4800 万像素（内存吃紧）</option>
+        </select>
+        <p class="hint">超过上限会等比缩小后处理。浏览器里处理 1 亿像素不现实；全尺寸请用桌面脚本版。</p>
+      </div>
+      <div class="field">
+        <label class="label">装到 Mac / 手机</label>
+        <p class="hint">Mac：Safari 或 Chrome 打开本页 → 菜单里选「安装」/「添加到程序坞」。<br>
+        手机：Safari（iPhone）或 Chrome（Android）打开 → 分享 → 「添加到主屏幕」。<br>
+        注意：手机要能装成可离线的 App，页面必须走 https（或本机 127.0.0.1）；局域网 http 只能加成书签。</p>
+      </div>
+      <div class="field">
+        <label class="label">关于</label>
+        <p class="hint">所有计算都在你的设备上完成，照片不会上传。轮廓是几十个系数的 JSON，可跨设备导入导出。</p>
+        <p id="verLine" class="hint mono"></p>
+      </div>
+      <button id="clearCache" class="btn ghost danger">清空缓存并重载</button>
+    </section>
+  </aside>
+</main>
+
+<footer class="bottombar" aria-label="主操作">
+  <button id="mobileFlat" class="btn ghost">平场</button>
+  <button id="mobileBuild" class="btn" disabled>生成轮廓</button>
+  <button id="mobileApply" class="btn primary" disabled>校正</button>
+</footer>
+
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+<div id="busy" class="busy" hidden><span class="spinner" aria-hidden="true"></span><span id="busyText">处理中</span></div>
+
+<script src="lib/math.js"></script>
+<script src="lib/codec.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

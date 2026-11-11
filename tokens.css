@@ -1,0 +1,230 @@
+/* ============================================================================
+   tokens.css — LCC 校正 PWA 设计令牌
+   风格来源：awesome-design-md / design-md/linear.app/DESIGN.md（Linear）
+   本文件只声明 CSS 自定义属性，不含任何组件样式规则。
+   用法示例：background: var(--c-surface-1); padding: var(--s-4);
+   ========================================================================== */
+
+:root {
+  /* 让原生控件（<select>、<input type=file>、滚动条）跟随明暗，
+     这是本文件里唯一的非自定义属性声明，见 DESIGN-NOTES.md 第 5 节 */
+  color-scheme: light;
+
+  /* ---------------------------------------------------------------- 表面
+     四阶表面梯：页面 → 卡片 → 输入/内嵌 → 下沉。抬升即变亮。 */
+  --c-bg: #f7f8f8;
+  --c-surface-1: #ffffff;
+  --c-surface-2: #f2f3f4;
+  --c-surface-3: #e8eaec;
+
+  /* 分隔线。--c-line 是发丝线（纯装饰，允许低于 3:1）；
+     --c-line-strong 用于必须看清边界的控件（≥3:1，非文本对比度达标） */
+  --c-line: #dde0e3;
+  --c-line-strong: #7a8087;
+
+  /* ----------------------------------------------------------------- 文字 */
+  --c-ink: #14161a;          /* 标题与正文           17.02:1 on --c-bg */
+  --c-ink-muted: #41474e;    /* 次级说明              8.83:1           */
+  --c-ink-subtle: #61686f;   /* 元信息、数值标签      5.31:1           */
+  --c-ink-faint: #8b929b;    /* 仅用于禁用态（豁免 4.5:1） */
+
+  /* --------------------------------------------------------------- 主色
+     Linear 的单一紫蓝强调色。按钮底用它、文字用它都够对比度。 */
+  --c-accent: #5e6ad2;
+  --c-accent-hover: #4f5bd0;
+  --c-accent-press: #4550bd;
+  --c-accent-ink: #4b57c4;   /* 亮色下的强调色文字   6.07:1 on 白卡片 */
+  --c-accent-soft: #eceefe;  /* 选中底色 / 弱提示底 */
+  --c-on-accent: #ffffff;    /* 强调底上的文字       4.70:1 on #5e6ad2 */
+
+  /* ------------------------------------------------------------ 四种状态色
+     每种给三档：基础色（图标、状态点、描边）／文字色（文字专用，保证 4.5:1）
+     ／柔底色（提示条背景）。文字务必用 *-ink，不要拿基础色写小字。 */
+  --c-ok: #1f8a3c;
+  --c-ok-ink: #14722f;       /* 6.04:1 on 卡片     5.32:1 on --c-ok-soft */
+  --c-ok-soft: #e6f4ea;
+
+  --c-warn: #a86a00;
+  --c-warn-ink: #8a5300;     /* 6.33:1 on 卡片     5.66:1 on --c-warn-soft */
+  --c-warn-soft: #fdf1dc;
+
+  --c-err: #c0352b;
+  --c-err-ink: #b3261e;      /* 6.54:1 on 卡片     5.72:1 on --c-err-soft */
+  --c-err-soft: #fdecea;
+
+  --c-info: #5e6ad2;         /* 与主色同族：信息 = 品牌色，不引入第二种彩色 */
+  --c-info-ink: #4b57c4;     /* 6.07:1 on 卡片     5.27:1 on --c-info-soft */
+  --c-info-soft: #eceefe;
+
+  /* ------------------------------------------------------- 交互与媒体专用 */
+  --c-focus: #5e6ad2;              /* 焦点环             4.70:1 on 白底 */
+  --c-track: #cfd3d7;              /* 滑块未填充轨道 */
+  --c-selection-bg: #5e6ad2;
+  --c-selection-ink: #ffffff;
+  --c-overlay: rgba(9, 10, 11, 0.48);      /* 浮层遮罩 */
+  --c-edge-highlight: rgba(255, 255, 255, 0.9); /* 抬升面板顶边高光（亮色几乎不可见） */
+
+  /* 图像预览底色：两套模式都保持近黑，避免照片被界面底色污染判断 */
+  --c-image-mat: #0b0b0c;
+  --c-image-mat-ink: #c9ccd1;      /* 12.22:1 on --c-image-mat */
+  --c-checker-a: #ffffff;          /* 透明区棋盘格 */
+  --c-checker-b: #eceef0;
+
+  /* ------------------------------------- 兼容别名（临时，可整体删除）
+     并行开发的 styles.css 先用了下面这批短名字。这里用 var() 指向正名，
+     没有复制任何色值，所以明暗两套自动跟随；改名后删掉本段即可。 */
+  --c-surface: var(--c-surface-1);
+  --c-muted: var(--c-ink-muted);
+  --c-ink-2: var(--c-ink-muted);
+  --c-line-2: var(--c-line-strong);
+
+  /* --------------------------------------------------------------- 字体族
+     中文正文强制思源宋体 → 宋体，末尾必须落到 serif。
+     等宽栈末尾接 CJK 衬线回退，避免中文元数据掉进系统黑体（PingFang）。 */
+  --f-stack-serif: 'Source Han Serif SC','Songti SC',serif;
+  --f-stack-mono: 'SF Mono',ui-monospace,Menlo,'Source Han Serif SC','Songti SC',serif;
+
+  /* 字体别名（同上：临时兼容，指向正名） */
+  --font-body: var(--f-stack-serif);
+  --font-mono: var(--f-stack-mono);
+
+  /* ------------------------------------------------------------- 字号（rem）
+     基准 16px。218ppi 的 Studio Display 上正文不得低于 1rem。 */
+  --f-display: 2rem;        /* 32px  安装页/空态主标题 */
+  --f-h1: 1.75rem;          /* 28px  顶栏 App 名、区块主标题 */
+  --f-h2: 1.375rem;         /* 22px  面板标题 */
+  --f-h3: 1.125rem;         /* 18px  控件分组标题 */
+  --f-body: 1rem;           /* 16px  正文基准 */
+  --f-body-lg: 1.0625rem;   /* 17px  手机主操作按钮 / 数值大读数 */
+  --f-small: 0.875rem;      /* 14px  次要说明（不作正文） */
+  --f-label: 0.8125rem;     /* 13px  控件标签、状态胶囊 */
+  --f-mono: 0.8125rem;      /* 13px  增益/像素数/耗时读数 */
+
+  /* 字重与行高、字距 */
+  --f-w-regular: 400;
+  --f-w-medium: 500;
+  --f-w-semibold: 600;
+  --f-lh-tight: 1.15;
+  --f-lh-snug: 1.3;
+  --f-lh-body: 1.55;
+  --f-lh-mono: 1.45;
+  --f-track-tight: -0.01em;   /* 大字号收紧 */
+  --f-track-normal: 0;
+  --f-track-label: 0.02em;    /* 小字号标签放开 */
+
+  /* ------------------------------------------------------------------ 间距
+     4px 基准阶梯（1–12 连续，再给 16/20 两个大档）。
+     --s-touch 是触控目标最小值，44px 由它表达。 */
+  --s-1: 0.25rem;   /*  4px */
+  --s-2: 0.5rem;    /*  8px */
+  --s-3: 0.75rem;   /* 12px */
+  --s-4: 1rem;      /* 16px */
+  --s-5: 1.25rem;   /* 20px */
+  --s-6: 1.5rem;    /* 24px */
+  --s-7: 1.75rem;   /* 28px */
+  --s-8: 2rem;      /* 32px */
+  --s-9: 2.25rem;   /* 36px */
+  --s-10: 2.5rem;   /* 40px */
+  --s-12: 3rem;     /* 48px */
+  --s-16: 4rem;     /* 64px */
+  --s-20: 5rem;     /* 80px */
+
+  --s-touch: 2.75rem;                            /* 44px 最小触控边长 */
+  --s-control-h: 2.75rem;                        /* 按钮/输入框默认高度 */
+  --s-control-h-desk: 2.25rem;                   /* 桌面紧凑高度 36px */
+  --s-page-x: clamp(1rem, 4vw, 2.5rem);          /* 页面左右内边距 */
+  --s-panel-gap: 1rem;                           /* 桌面两栏间距 */
+  --s-safe-bottom: env(safe-area-inset-bottom, 0rem); /* 手机底部安全区 */
+
+  /* ------------------------------------------------------------------ 圆角
+     三档：小控件 / 卡片 / 浮层与图像容器。 */
+  --r-1: 6px;
+  --r-2: 10px;
+  --r-3: 14px;
+  --r-pill: 999px;
+
+  /* ------------------------------------------------------------------ 阴影
+     只给两档，克制。抬升主要靠表面梯与描边，不靠阴影。 */
+  --sh-1: 0 1px 2px rgba(9, 10, 11, 0.06), 0 1px 1px rgba(9, 10, 11, 0.04);   /* 卡片 */
+  --sh-2: 0 12px 32px -8px rgba(9, 10, 11, 0.18), 0 2px 6px rgba(9, 10, 11, 0.08); /* 浮层 */
+
+  /* ---------------------------------------------------------------- 过渡时长 */
+  --t-fast: 100ms;
+  --t-base: 160ms;
+  --t-slow: 240ms;
+  --t-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --t-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* 过渡别名（同上：临时兼容，指向正名） */
+  --t: var(--t-base);
+}
+
+/* ============================================================================
+   暗色模式覆盖 —— 与 :root 同一批 --c-* 变量名，一个不少。
+   中性色与强调色取自 Linear 的暗色梯（canvas #010102 / surface-1 #0f1011 /
+   hairline #23252a / ink #f7f8f8）。语义色按暗底重新标定。
+   ========================================================================== */
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+
+    --c-bg: #010102;
+    --c-surface-1: #0f1011;
+    --c-surface-2: #141516;
+    --c-surface-3: #18191a;
+
+    --c-line: #23252a;
+    --c-line-strong: #62666d;   /* 控件描边 3.17:1 on --c-surface-2 */
+
+    --c-ink: #f7f8f8;
+    --c-ink-muted: #d0d6e0;
+    --c-ink-subtle: #8a8f98;
+    --c-ink-faint: #62666d;
+
+    --c-accent: #5e6ad2;
+    --c-accent-hover: #828fff;
+    --c-accent-press: #5e69d1;
+    --c-accent-ink: #828fff;    /* 暗底上的强调色文字 7.27:1 */
+    --c-accent-soft: #1b1d3a;
+    --c-on-accent: #ffffff;
+
+    --c-ok: #27a644;
+    --c-ok-ink: #4ec46c;        /* 8.56:1 on 卡片 */
+    --c-ok-soft: #0f2417;
+
+    --c-warn: #f5a623;
+    --c-warn-ink: #f5a623;      /* 9.40:1 on 卡片 */
+    --c-warn-soft: #2b2008;
+
+    --c-err: #ee5b52;
+    --c-err-ink: #f26a62;       /* 6.36:1 on 卡片 */
+    --c-err-soft: #2c1413;
+
+    --c-info: #5e6ad2;
+    --c-info-ink: #828fff;      /* 6.64:1 on 卡片 */
+    --c-info-soft: #1b1d3a;
+
+    --c-focus: #828fff;
+    --c-track: #3a3d44;
+    --c-selection-bg: #5e6ad2;
+    --c-selection-ink: #ffffff;
+    --c-overlay: rgba(0, 0, 0, 0.62);
+    --c-edge-highlight: rgba(255, 255, 255, 0.06);
+
+    /* 图像预览底色两套一致，不随主题翻转 */
+    --c-image-mat: #0b0b0c;
+    --c-image-mat-ink: #c9ccd1;
+    --c-checker-a: #141516;
+    --c-checker-b: #1c1e20;
+
+    /* 兼容别名：值是指向正名的 var()，本身不必改，此处重复仅为「两套变量名给齐」 */
+    --c-surface: var(--c-surface-1);
+    --c-muted: var(--c-ink-muted);
+    --c-ink-2: var(--c-ink-muted);
+    --c-line-2: var(--c-line-strong);
+
+    /* 暗底上阴影几乎不可见，靠加深 + 顶边高光表达抬升 */
+    --sh-1: 0 1px 2px rgba(0, 0, 0, 0.6), 0 1px 0 rgba(255, 255, 255, 0.03);
+    --sh-2: 0 16px 40px -8px rgba(0, 0, 0, 0.8), 0 2px 8px rgba(0, 0, 0, 0.5);
+  }
+}

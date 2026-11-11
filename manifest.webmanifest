@@ -1,0 +1,18 @@
+{
+  "name": "LCC 校正 · 色偏与暗角",
+  "short_name": "LCC 校正",
+  "description": "浏览器内的镜头色偏与暗角校正：平场建轮廓，线性域逐通道相除。",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "background_color": "#f7f8f8",
+  "theme_color": "#f7f8f8",
+  "lang": "zh-CN",
+  "categories": ["photo", "productivity", "utilities"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
